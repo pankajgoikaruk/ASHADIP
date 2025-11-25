@@ -1,0 +1,10 @@
+# caches, runs, models
+data_cache*/
+runs*/
+runs_v0*/
+runs_v1*/
+*.pt
+# IDE
+.vscode/
+.idea/
+__pycache__/
