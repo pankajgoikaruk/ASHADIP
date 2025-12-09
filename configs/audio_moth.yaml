@@ -2,8 +2,8 @@ seed: 42
 
 paths:
   data_root: data
-  cache_root: data_cache_v1 # Edit version here to save results in various directories. Ex: data_cache_V0, V1 so on...
-  runs_root: runs_v1 # Edit this directory name to store results of various version in suitable directories.
+  cache_root: data_cache # Edit version here to save results in various directories. Ex: data_cache_V0, V1 so on...
+  runs_root: runs # Edit this directory name to store results of various version in suitable directories.
 
 audio:
   sample_rate: 16000
