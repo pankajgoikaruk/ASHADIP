@@ -1,0 +1,16 @@
+exit,class,type,precision,recall,f1,support
+exit1,female,class,0.865546,0.915556,0.889849,225
+exit1,male,class,0.800000,0.703704,0.748768,108
+exit1,,accuracy,,,0.846847,
+exit1,,macro avg,0.832773,0.809630,0.819309,333
+exit1,,weighted avg,0.844288,0.846847,0.844093,333
+exit2,female,class,0.940092,0.906667,0.923077,225
+exit2,male,class,0.818966,0.879630,0.848214,108
+exit2,,accuracy,,,0.897898,
+exit2,,macro avg,0.879529,0.893148,0.885646,333
+exit2,,weighted avg,0.900808,0.897898,0.898797,333
+exit3,female,class,1.000000,0.991111,0.995536,225
+exit3,male,class,0.981818,1.000000,0.990826,108
+exit3,,accuracy,,,0.993994,
+exit3,,macro avg,0.990909,0.995556,0.993181,333
+exit3,,weighted avg,0.994103,0.993994,0.994008,333

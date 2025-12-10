@@ -1,38 +1,33 @@
 import json
 import argparse
 from pathlib import Path
+import csv
 
-import pandas as pd  # NEW: for CSV backup
 
-
-def load_analysis_json(path):
-    """Load analysis_run.json and return its parsed content."""
-    with open(path, "r", encoding="utf-8") as f:
+def load_json(path, default=None):
+    """Safe JSON loader with optional default."""
+    p = Path(path)
+    if not p.exists():
+        return default
+    with open(p, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def make_latex_table(classification_per_exit, run_label="ASHADIP_V0 run", label_names=None):
     """
-    Build a LaTeX table string from the 'classification_per_exit' block inside analysis_run.json.
+    Build a LaTeX table string from a classification_report-style dict per exit.
 
-    classification_per_exit is expected to have the structure produced by
-    sklearn.classification_report(output_dict=True), e.g.:
-
+    Structure expected (per exit):
       {
-        "exit1": {
-          "0": {"precision": ..., "recall": ..., "f1-score": ..., "support": ...},
-          "1": {...},
-          "accuracy": 0.96,
-          "macro avg": {...},
-          "weighted avg": {...}
-        },
-        "exit2": {...},
-        "exit3": {...}
+        "0": {...},
+        "1": {...},
+        "accuracy": 0.96,
+        "macro avg": {...},
+        "weighted avg": {...}
       }
 
-    label_names (optional) is a list like ["female", "male", ...] in index order 0..C-1.
+    label_names (optional): list like ["female", "male", ...] in index order 0..C-1.
     """
-
     lines = []
 
     lines.append(r"\begin{table}[ht]")
@@ -44,7 +39,6 @@ def make_latex_table(classification_per_exit, run_label="ASHADIP_V0 run", label_
     lines.append(r"    Class / summary & Precision & Recall & F1-score & Support \\")
     lines.append(r"    \midrule")
 
-    # Helper to format one exit block
     def add_exit_block(exit_name, exit_dict):
         # exit_name: "exit1", "exit2", ...
         # exit_dict: classification_report dict for that exit
@@ -59,10 +53,8 @@ def make_latex_table(classification_per_exit, run_label="ASHADIP_V0 run", label_
 
         # Sort class keys so rows are deterministic
         try:
-            # if keys are numeric strings ("0","1",...) sort by int
             class_keys = sorted(class_keys, key=lambda x: int(x))
         except ValueError:
-            # otherwise sort lexicographically
             class_keys = sorted(class_keys)
 
         # Per-class rows
@@ -124,6 +116,108 @@ def make_latex_table(classification_per_exit, run_label="ASHADIP_V0 run", label_
     return "\n".join(lines)
 
 
+def write_csv_and_txt(classification_per_exit, out_tex_path: Path, label_names=None):
+    """
+    Create a CSV and a simple TXT version of the classification metrics,
+    stored next to the .tex file:
+
+      - <basename>.csv
+      - <basename>.txt
+
+    Columns:
+      exit, class, type, precision, recall, f1, support
+
+    type ∈ {"class", "accuracy", "macro avg", "weighted avg"}
+    """
+    csv_path = out_tex_path.with_suffix(".csv")
+    txt_path = out_tex_path.with_suffix(".txt")
+
+    rows = []
+    header = ["exit", "class", "type", "precision", "recall", "f1", "support"]
+
+    for exit_name in sorted(classification_per_exit.keys()):
+        exit_dict = classification_per_exit[exit_name]
+
+        aggregate_keys = {"accuracy", "macro avg", "weighted avg"}
+        class_keys = [k for k in exit_dict.keys() if k not in aggregate_keys]
+
+        try:
+            class_keys = sorted(class_keys, key=lambda x: int(x))
+        except ValueError:
+            class_keys = sorted(class_keys)
+
+        # Class rows
+        for cls in class_keys:
+            stats = exit_dict[cls]
+            prec = stats.get("precision", None)
+            rec = stats.get("recall", None)
+            f1 = stats.get("f1-score", None)
+            sup = stats.get("support", None)
+
+            if label_names is not None:
+                try:
+                    cls_idx = int(cls)
+                    cls_name = label_names[cls_idx]
+                except (ValueError, IndexError):
+                    cls_name = str(cls)
+            else:
+                cls_name = str(cls)
+
+            rows.append([
+                exit_name,
+                cls_name,
+                "class",
+                f"{prec:.6f}" if prec is not None else "",
+                f"{rec:.6f}" if rec is not None else "",
+                f"{f1:.6f}" if f1 is not None else "",
+                int(sup) if sup is not None else ""
+            ])
+
+        # Accuracy
+        if "accuracy" in exit_dict:
+            acc = exit_dict["accuracy"]
+            rows.append([
+                exit_name,
+                "",          # no specific class
+                "accuracy",
+                "", "", f"{acc:.6f}", ""
+            ])
+
+        # Macro / weighted averages
+        for agg_key in ["macro avg", "weighted avg"]:
+            if agg_key in exit_dict:
+                stats = exit_dict[agg_key]
+                prec = stats.get("precision", None)
+                rec = stats.get("recall", None)
+                f1 = stats.get("f1-score", None)
+                sup = stats.get("support", None)
+
+                rows.append([
+                    exit_name,
+                    "",  # aggregate row, no class name
+                    agg_key,
+                    f"{prec:.6f}" if prec is not None else "",
+                    f"{rec:.6f}" if rec is not None else "",
+                    f"{f1:.6f}" if f1 is not None else "",
+                    int(sup) if sup is not None else ""
+                ])
+
+    # Write CSV
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        writer.writerows(rows)
+
+    # Write TXT (tab-separated for quick viewing)
+    with open(txt_path, "w", encoding="utf-8") as f:
+        f.write("\t".join(header) + "\n")
+        for r in rows:
+            f.write("\t".join(str(x) for x in r) + "\n")
+
+    print(f"[analysis_to_latex] Wrote CSV to {csv_path} with {len(rows)} rows")
+    print(f"[analysis_to_latex] Wrote TXT to {txt_path} with {len(rows)} rows")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -147,83 +241,34 @@ def main():
     out_tex_path = Path(args.out_tex)
     out_tex_path.parent.mkdir(parents=True, exist_ok=True)
 
-    analysis = load_analysis_json(analysis_path)
-    classification_per_exit = analysis.get("classification_per_exit", None)
+    # Load analysis_run.json (for label_names, maybe classification_per_exit)
+    analysis = load_json(analysis_path, default={}) or {}
+    cls = analysis.get("classification_per_exit")
     label_names = analysis.get("label_names")
 
-    if classification_per_exit is None:
-        raise SystemExit(
-            f"No 'classification_per_exit' found in {analysis_path}. "
-            f"Did you generate analysis_run.json with analyse_run.py?"
-        )
-
-    # -------- CSV backup: flatten per-exit metrics into a DataFrame --------
-    rows = []
-    aggregate_keys = {"accuracy", "macro avg", "weighted avg"}
-
-    for exit_name, exit_dict in classification_per_exit.items():
-        for key, stats in exit_dict.items():
-            # Accuracy is a scalar, not a dict
-            if key == "accuracy":
-                rows.append(
-                    {
-                        "exit": exit_name,
-                        "row_type": "summary",
-                        "name": "accuracy",
-                        "precision": None,
-                        "recall": None,
-                        "f1_score": None,
-                        "support": None,
-                        "accuracy": float(stats),
-                    }
-                )
-                continue
-
-            # Everything else (classes, macro avg, weighted avg) is a dict
-            if not isinstance(stats, dict):
-                continue
-
-            row_type = "summary" if key in aggregate_keys else "class"
-
-            # Map key to human-readable label for class rows
-            if (row_type == "class") and (label_names is not None):
-                try:
-                    cls_idx = int(key)
-                    name = label_names[cls_idx]
-                except (ValueError, IndexError):
-                    name = str(key)
-            else:
-                name = str(key)
-
-            rows.append(
-                {
-                    "exit": exit_name,
-                    "row_type": row_type,
-                    "name": name,
-                    "precision": stats.get("precision"),
-                    "recall": stats.get("recall"),
-                    "f1_score": stats.get("f1-score"),
-                    "support": stats.get("support"),
-                    "accuracy": None,
-                }
+    # Fallback: if classification_per_exit is missing or empty, load report.json directly
+    if not cls:
+        run_dir = analysis_path.parent  # runs/YYYYMMDD_HHMMSS
+        report_path = run_dir / "report.json"
+        report = load_json(report_path, default=None)
+        if report is None:
+            raise SystemExit(
+                f"No 'classification_per_exit' in {analysis_path} and "
+                f"no report.json at {report_path}."
             )
+        cls = report
+        print(f"[analysis_to_latex] Using classification metrics from {report_path}")
+    else:
+        print(f"[analysis_to_latex] Using classification_per_exit from {analysis_path}")
 
-    df_csv = pd.DataFrame(rows)
-    out_csv_path = out_tex_path.with_suffix(".csv")
-    df_csv.to_csv(out_csv_path, index=False)
-    print(f"[analysis_to_latex] Wrote CSV backup to {out_csv_path}")
-
-    # -------- LaTeX table --------
-    table_str = make_latex_table(
-        classification_per_exit,
-        run_label=args.run_label,
-        label_names=label_names,
-    )
-
+    # 1) LaTeX table
+    table_str = make_latex_table(cls, run_label=args.run_label, label_names=label_names)
     with open(out_tex_path, "w", encoding="utf-8") as f:
         f.write(table_str + "\n")
-
     print(f"[analysis_to_latex] Wrote LaTeX table to {out_tex_path}")
+
+    # 2) CSV + TXT backups
+    write_csv_and_txt(cls, out_tex_path, label_names=label_names)
 
 
 if __name__ == "__main__":

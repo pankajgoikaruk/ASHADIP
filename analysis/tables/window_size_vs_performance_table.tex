@@ -1,0 +1,15 @@
+\begin{table}[ht]
+  \centering
+  \caption{Effect of window size on ASHADIP performance (V0 baseline).}
+  \label{tab:window_size_performance}
+  \begin{tabular}{rrrrrrrrr}
+    \toprule
+    Window (s) & Runs & Acc$_{\text{policy}}$ (\%) & Avg exit depth & Save (\%) & Exit1 (ms) & Exit2 (ms) & Exit3 (ms) & Pipeline (min) \\
+    \midrule
+    1 & 1 & 97.3 & 1.895 & 52.0 & 0.37 & 3.26 & 6.16 & 14.27 \\
+    10 & 1 & 99.7 & 2.784 & 10.2 & 4.12 & 37.03 & 69.95 & 14.32 \\
+    20 & 2 & 99.4 & 2.465 & 25.1 & 7.78 & 69.99 & 132.20 & 15.89 \\
+    30 & 2 & 100.0 & 2.568 & 20.3 & 11.14 & 100.27 & 189.40 & 12.90 \\
+    \bottomrule
+  \end{tabular}
+\end{table}

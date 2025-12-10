@@ -1,4 +1,9 @@
-﻿# ASHADIP v0 end-to-end runner (steps 2→7)
+﻿# NOTE: Legacy script kept for reference.
+# For the full modern pipeline (training + analysis + profiling),
+# please use scripts\run_full.ps1 instead.
+
+
+# ASHADIP v0 end-to-end runner (steps 2→7)
 param([string]$DataRoot="data\moth_sounds",[string]$CacheDir="data_cache",[string]$Config="configs\audio_moth.yaml")
 $ErrorActionPreference="Stop"
 $env:PYTHONPATH=(Get-Location).Path
